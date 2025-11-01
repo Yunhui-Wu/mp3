@@ -31,6 +31,22 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());
 
+// Add root route for health check and info
+app.get('/', function (req, res) {
+    res.json({ 
+        message: 'Welcome to Task Management API',
+        data: {
+            version: '1.0.0',
+            endpoints: {
+                users: '/api/users',
+                tasks: '/api/tasks',
+                home: '/api'
+            },
+            documentation: 'Visit /api for more information'
+        }
+    });
+});
+
 // Use routes as a module (see index.js)
 require('./routes')(app, router);
 
