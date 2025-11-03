@@ -278,6 +278,14 @@ module.exports = function () {
 
                 await user.save({ session: session });
 
+                // Update assignedUserName in all tasks assigned to this user (including completed ones)
+                await Task.updateMany(
+                    { assignedUser: user._id.toString() },
+                    { assignedUserName: user.name },
+                    { session: session }
+                );
+
+                // Update pendingTasks: assign tasks that are in new pendingTasks
                 if (user.pendingTasks.length) {
                     await Task.updateMany(
                         { _id: { $in: user.pendingTasks } },
@@ -286,6 +294,7 @@ module.exports = function () {
                     );
                 }
 
+                // Unassign tasks that were removed from pendingTasks
                 var removedTaskIds = oldPendingTasks.filter(function (taskId) {
                     return !user.pendingTasks.includes(taskId);
                 });
