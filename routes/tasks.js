@@ -94,14 +94,56 @@ module.exports = function () {
         task.assignedUser = req.body.assignedUser || "";
         task.assignedUserName = req.body.assignedUserName || "unassigned";
 
-        task.save()
-            .then(function (savedTask) {
+        var savePromise;
 
+        // Validate assignedUserName if both assignedUser and assignedUserName are provided
+        if (task.assignedUser && req.body.assignedUserName !== undefined) {
+            savePromise = User.findById(task.assignedUser)
+                .then(function (user) {
+                    if (!user) {
+                        return Promise.reject({
+                            statusCode: 400,
+                            message: "Bad Request",
+                            data: "Assigned user not found"
+                        });
+                    }
+
+                    if (req.body.assignedUserName !== user.name) {
+                        return Promise.reject({
+                            statusCode: 400,
+                            message: "Bad Request",
+                            data: "assignedUserName does not match the name of the assigned user"
+                        });
+                    }
+
+                    task.assignedUserName = user.name;
+                    return task.save();
+                });
+        } else if (task.assignedUser && req.body.assignedUserName === undefined) {
+
+            savePromise = User.findById(task.assignedUser)
+                .then(function (user) {
+                    if (!user) {
+                        return Promise.reject({
+                            statusCode: 400,
+                            message: "Bad Request",
+                            data: "Assigned user not found"
+                        });
+                    }
+                    task.assignedUserName = user.name;
+                    return task.save();
+                });
+        } else {
+
+            savePromise = task.save();
+        }
+
+        savePromise
+            .then(function (savedTask) {
                 if (savedTask.assignedUser && !savedTask.completed) {
                     return User.findById(savedTask.assignedUser)
                         .then(function (user) {
                             if (user) {
-                                savedTask.assignedUserName = user.name;
                                 var taskIdString = savedTask._id.toString();
 
                                 user.pendingTasks = user.pendingTasks.filter(
@@ -112,8 +154,6 @@ module.exports = function () {
                                     return savedTask.save();
                                 });
                             }
-                        })
-                        .then(function () {
                             return savedTask;
                         });
                 }
@@ -126,6 +166,12 @@ module.exports = function () {
                 });
             })
             .catch(function (err) {
+                if (err.statusCode) {
+                    return res.status(err.statusCode).json({
+                        message: err.message,
+                        data: err.data
+                    });
+                }
                 res.status(500).json({
                     message: "Internal Server Error",
                     data: "Error creating task"
@@ -258,7 +304,47 @@ module.exports = function () {
                 task.oldAssignedUser = oldAssignedUser;
                 task.oldCompleted = oldCompleted;
 
-                return task.save();
+                // Validate assignedUserName if both assignedUser and assignedUserName are provided
+                if (task.assignedUser && req.body.assignedUserName !== undefined) {
+                    return User.findById(task.assignedUser)
+                        .then(function (user) {
+                            if (!user) {
+                                return Promise.reject({
+                                    statusCode: 400,
+                                    message: "Bad Request",
+                                    data: "Assigned user not found"
+                                });
+                            }
+
+                            if (req.body.assignedUserName !== user.name) {
+                                return Promise.reject({
+                                    statusCode: 400,
+                                    message: "Bad Request",
+                                    data: "assignedUserName does not match the name of the assigned user"
+                                });
+                            }
+
+                            task.assignedUserName = user.name;
+                            return task.save();
+                        });
+                } else if (task.assignedUser && req.body.assignedUserName === undefined) {
+
+                    return User.findById(task.assignedUser)
+                        .then(function (user) {
+                            if (!user) {
+                                return Promise.reject({
+                                    statusCode: 400,
+                                    message: "Bad Request",
+                                    data: "Assigned user not found"
+                                });
+                            }
+                            task.assignedUserName = user.name;
+                            return task.save();
+                        });
+                } else {
+
+                    return task.save();
+                }
             })
             .then(function (task) {
                 // Remove task from old user's pending tasks
@@ -324,6 +410,12 @@ module.exports = function () {
                 });
             })
             .catch(function (err) {
+                if (err.statusCode) {
+                    return res.status(err.statusCode).json({
+                        message: err.message,
+                        data: err.data
+                    });
+                }
                 res.status(500).json({
                     message: "Internal Server Error",
                     data: "Error updating task"
